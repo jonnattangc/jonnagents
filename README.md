@@ -19,6 +19,7 @@ jonnagents/
     ├── definitions/             ← una definición por agente, en formato neutral
     ├── install-claude.sh        ← traduce e instala en ~/.claude/agents/
     ├── install-opencode.sh      ← traduce e instala en ~/.config/opencode/agents/
+    ├── install-codex.sh         ← traduce e instala en ~/.codex/agents/ (TOML)
     └── lib/common.sh            ← listado, validación, traducción idempotente
 ```
 
@@ -78,18 +79,19 @@ model-tier: standard             # fast | standard | deep
 
 ### Traducción por herramienta
 
-| Neutral | Claude Code | OpenCode |
-|---|---|---|
-| `name` | `name` | nombre del archivo |
-| `description` | `description` | `description` |
-| `capabilities` | `tools`: read→`Read`, write→`Write`, edit→`Edit`, shell→`Bash`, search→`Grep`, `Glob` | `permission`: sin write ni edit → `edit: deny`; sin shell → `bash: deny` |
-| `model-tier` | `model`: fast→`haiku`, standard→`sonnet`, deep→`opus` | se omite (hereda el modelo configurado) o `--model` |
-| — | — | `mode: subagent` |
-| cuerpo | igual | igual |
+| Neutral | Claude Code | OpenCode | Codex |
+|---|---|---|---|
+| formato | Markdown + YAML | Markdown + YAML | TOML (`<agente>.toml`) |
+| `name` | `name` | nombre del archivo | `name` |
+| `description` | `description` | `description` | `description` (aplanada a una línea) |
+| `capabilities` | `tools`: read→`Read`, write→`Write`, edit→`Edit`, shell→`Bash`, search→`Grep`, `Glob` | `permission`: sin write ni edit → `edit: deny`; sin shell → `bash: deny` | `sandbox_mode`: con write o edit → `workspace-write`; sin ellas → `read-only` (Codex no permite quitar solo la shell) |
+| `model-tier` | `model`: fast→`haiku`, standard→`sonnet`, deep→`opus` | se omite (hereda el modelo configurado) o `--model` | `model_reasoning_effort`: fast→`low`, standard→`medium`, deep→`high`; `model` se omite o `--model` |
+| — | — | `mode: subagent` | — |
+| cuerpo | igual | igual | `developer_instructions` |
 
 ## Instalación
 
-Ambos instaladores son globales (a nivel usuario), idempotentes (reportan cada
+Los instaladores son globales (a nivel usuario), idempotentes (reportan cada
 agente como instalado `+`, actualizado `↻` o sin cambios `=`) y validan el
 frontmatter antes de escribir: si una definición es inválida, no instalan nada.
 
@@ -116,17 +118,32 @@ instalador avisa: la copia del proyecto pisa a la global.
 Respeta `$XDG_CONFIG_HOME`. Avisa si hay copias en `.opencode/agents/` del
 proyecto. En OpenCode se invocan con `@<agente>`.
 
+### Codex
+
+```bash
+./agents/install-codex.sh                     # instala en ~/.codex/agents/<agente>.toml
+./agents/install-codex.sh --model gpt-5.5     # fija el modelo de todos
+./agents/install-codex.sh -a k3s-cluster-ops --dry-run
+```
+
+Codex carga cada archivo de `~/.codex/agents/` como un agente personalizado
+(`name`, `description` y `developer_instructions` son obligatorios). Respeta
+`$CODEX_HOME` y avisa si hay copias en `.codex/agents/` del proyecto. Codex
+no lanza subagentes por su cuenta: pídelo explícitamente en la sesión, por
+ejemplo *"lanza el agente java-backend-dev para …"*. Un archivo mal formado se
+ignora con un aviso al iniciar la sesión.
+
 ### Otras herramientas (manual)
 
 | Herramienta | Cómo usar una definición |
 |---|---|
-| Codex | Copia el cuerpo (sin frontmatter) como sección del `AGENTS.md` del repo, o como perfil/agente si tu versión lo soporta. |
 | Kiro | Como steering en `.kiro/steering/<agente>.md`, o como agente personalizado con el cuerpo como prompt. |
 | Aider | `aider --read agents/definitions/<agente>.md` (lo carga como convenciones de solo lectura). |
 
 Para automatizar una herramienta nueva basta un `agents/install-<herramienta>.sh`
 que cargue `lib/common.sh`, defina `HERRAMIENTA`, `DEST`, `DIR_LOCAL` y una función
-`traducir` que imprima la definición en el formato de esa herramienta.
+`traducir` que imprima la definición en el formato de esa herramienta (y
+`EXTENSION` si el archivo destino no es `.md`, como el `toml` de Codex).
 
 ## Agregar un agente
 

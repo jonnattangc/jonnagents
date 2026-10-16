@@ -11,6 +11,9 @@
 #                     (ej. ".claude/agents"), para avisar de copias locales
 #   traducir <src>    funcion que imprime por stdout la definicion traducida
 #
+# Opcional:
+#   EXTENSION         extension del archivo destino, sin punto (default: md)
+#
 
 set -euo pipefail
 
@@ -22,6 +25,7 @@ TIERS_VALIDOS="fast standard deep"
 
 DRY_RUN=false
 SELECTED=()
+EXTENSION="${EXTENSION:-md}"
 
 rojo()  { printf '\033[31m%s\033[0m\n' "$*"; }
 verde() { printf '\033[32m%s\033[0m\n' "$*"; }
@@ -208,7 +212,7 @@ instalar_todo() {
   trap 'rm -f "$TMP_TRADUCCION"' EXIT
 
   for f in "${archivos[@]}"; do
-    base="$(basename "$f")"
+    base="$(basename "$f" .md).$EXTENSION"
     traducir "$f" > "$TMP_TRADUCCION"
     if [[ -f "$DEST/$base" ]] && cmp -s "$TMP_TRADUCCION" "$DEST/$base"; then
       gris "  = $base (sin cambios)"
@@ -232,14 +236,14 @@ avisar_copias_locales() {
     if [[ -d "$dir/$DIR_LOCAL" && "$dir/$DIR_LOCAL" != "$DEST" ]]; then
       locales=""
       for f in "$@"; do
-        [[ -f "$dir/$DIR_LOCAL/$(basename "$f")" ]] && locales="$locales $(basename "$f" .md)"
+        [[ -f "$dir/$DIR_LOCAL/$(basename "$f" .md).$EXTENSION" ]] && locales="$locales $(basename "$f" .md)"
       done
       if [[ -n "$locales" ]]; then
         echo
         rojo "Atencion: '$dir/$DIR_LOCAL' tiene copias locales que PISAN a las globales:"
         for f in $locales; do gris "  - $f"; done
         gris "Borralas para que ese proyecto use las definiciones instaladas:"
-        for f in $locales; do gris "  rm $dir/$DIR_LOCAL/$f.md"; done
+        for f in $locales; do gris "  rm $dir/$DIR_LOCAL/$f.$EXTENSION"; done
       fi
       break
     fi
